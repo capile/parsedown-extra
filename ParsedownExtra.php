@@ -740,7 +740,7 @@ class ParsedownExtra extends Parsedown
     {
         if ($Line['body'][0] === '>' and preg_match('/^>[ ]?(.*)/', $Line['body'], $matches))
         {
-            if($matches[1][0]=='{' || $matches[1][0]=='(') return;
+            if(substr($matches[1], 0, 1)=='{' || substr($matches[1], 0, 1)=='(') return;
             if (isset($Block['interrupted']))
             {
                 $Block['element']['text'] []= '';
