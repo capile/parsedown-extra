@@ -1,5 +1,5 @@
 {
-    "name": "tecnodz/parsedown-extra",
+    "name": "capile/parsedown-extra",
     "description": "An extension of Parsedown that adds support for Markdown Extra (forked from erusev/parsedown-extra).",
     "keywords": ["markdown", "markdown extra", "parser", "parsedown"],
     "homepage": "https://github.com/erusev/parsedown-extra",
