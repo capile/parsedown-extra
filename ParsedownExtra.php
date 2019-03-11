@@ -49,13 +49,7 @@ class ParsedownExtra extends Parsedown
 
     function text($text)
     {
-        $Elements = $this->textElements($text);
-
-        # convert to markup
-        $markup = $this->elements($Elements);
-
-        # trim line breaks
-        $markup = trim($markup, "\n");
+        $markup = parent::text($text);
 
         # merge consecutive dl elements
 
@@ -231,7 +225,16 @@ class ParsedownExtra extends Parsedown
             $Block['element']['handler']['argument'] = substr($Block['element']['handler']['argument'], 0, $matches[0][1]);
         }
         if(!isset($Block['element']['attributes']['id'])) {
-            $Block['element']['attributes']['id'] = self::slug($Block['element']['text']);
+            if(isset($Block['element']['text'])) {
+                $text = $Block['element']['text'];
+            } else if(isset($Block['element']['handler']['argument'])) {
+                $text = strip_tags($this->text($Block['element']['handler']['argument']));
+            } else {
+                $text = '';
+            }
+            if($text!=='') {
+                $Block['element']['attributes']['id'] = self::slug($text);
+            }
         }
 
         return $Block;
@@ -604,225 +607,6 @@ class ParsedownExtra extends Parsedown
         return $Element;
     }
     
-    /** 
-     * Table
-     * @param type $Line
-     * @param array $Block
-     * @return string
-     */
-    protected function blockTable($Line, array $Block = null)
-    {
-        if ( ! isset($Block) or isset($Block['type']) or isset($Block['interrupted'])) {
-            return;
-        }
-        
-        if (strpos($Block['element']['text'], '|') !== false and chop($Line['text'], ' -:|') === '') {
-            //Get all header lines
-            $hlines = explode("\n",$Block['element']['text']);
-            
-            
-            //Get cell alignments
-            $alignments = array();
-
-            $divider = $Line['text'];
-            $divider = trim($divider);
-            $divider = trim($divider, '|');
-
-            $dividerCells = explode('|', $divider);
-
-            foreach ($dividerCells as $dividerCell)
-            {
-                $dividerCell = trim($dividerCell);
-
-                if ($dividerCell === '') {
-                    continue;
-                }
-
-                $alignment = null;
-
-                if ($dividerCell[0] === ':') {
-                    $alignment = 'left';
-                }
-
-                if (substr($dividerCell, - 1) === ':') {
-                    $alignment = $alignment === 'left' ? 'center' : 'right';
-                }
-
-                $alignments []= $alignment;
-            }
-            
-            //Start Block type
-            $Block = array(
-                'alignments' => $alignments,
-                'identified' => true,
-                'element' => array(
-                    'name' => 'table',
-                    'handler' => 'elements',
-                ),
-            );
-            
-            $Block['element']['text'] []= array(
-                'name' => 'caption',
-                'handler' => 'elements',
-                'text' => array()
-            );
-            
-            $Block['element']['text'] []= array(
-                'name' => 'thead',
-                'handler' => 'elements',
-                'text' => array(),
-            );
-
-            $Block['element']['text'] []= array(
-                'name' => 'tbody',
-                'handler' => 'elements',
-                'text' => array(),
-            );
-            
-            //Treating header lines
-            foreach($hlines as $hline) {              
-                $HeaderElements = array();
-
-                //$header = $Block['element']['text'];           
-                $header = $hline;
-                $header = trim($header);
-                $header = ltrim($header, '|');
-
-                $headerCells = explode('|', $header);
-                $colspan = 1;
-
-                foreach ($headerCells as $index => $headerCell)
-                {
-                    if($headerCell=='') {
-                        $colspan++;
-                        if($index>0) {
-                            $prev = $index -1;
-                            while($prev > -1) {
-                                if(isset($HeaderElements[$prev])) {
-                                    if(!isset($HeaderElements[$prev]['attributes']['colspan'])) {                                  
-                                      $HeaderElements[$prev]['attributes']['colspan']=$colspan;
-                                    } else {                                  
-                                      $HeaderElements[$prev]['attributes']['colspan'] += $colspan;
-                                    }
-                                    break;
-                                }
-                                $prev--;
-                            }
-                        }
-                        continue;
-                    }
-
-                    $headerCell = trim($headerCell);
-
-                    $HeaderElement = array(
-                        'name' => 'th',
-                        'text' => $headerCell,
-                        'handler' => 'line',
-                    );
-
-                    if (isset($alignments[$index]))
-                    {
-                        $HeaderElement['attributes'] = array(
-                            'style' => 'text-align: '.$alignments[$index].';',
-                        );
-                    }
-
-                    if($colspan > 1) {
-                        $Element['attributes']['colspan'] = $colspan;
-                        $colspan = 1;
-                    }
-
-                    $HeaderElements[$index]= $HeaderElement;
-                }
-
-                $Block['element']['text'][1]['text'] []= array(
-                    'name' => 'tr',
-                    'handler' => 'elements',
-                    'text' => $HeaderElements,
-                );
-            }
-            return $Block;
-        }
-    }
-
-    protected function blockTableContinue($Line, array $Block)
-    {
-        if (isset($Block['interrupted']))
-        {
-            return;
-        }
-
-        if ($Line['text'][0] === '|' or strpos($Line['text'], '|'))
-        {
-            $Elements = array();
-
-            $row = $Line['text'];
-
-            $row = preg_replace('/^ *\\| *| *\\| *$/', '', $row);
-            $cells = preg_split('/\\|/', $row);
-
-            preg_match_all('/(?:(\\\\[|])|[^|`]|`[^`]+`|`)+/', $row, $matches);
-            $colspan=1;
-
-            foreach ($cells as $index => $cell)
-            {
-                if($cell=='') {
-                    $colspan++;
-                    if($index>0) {
-                        $prev = $index -1;
-                        while($prev > -1) {
-                            if(isset($Elements[$prev])) {
-                                if(!isset($Elements[$prev]['attributes']['colspan'])) $Elements[$prev]['attributes']['colspan']=$colspan;
-                                else $Elements[$prev]['attributes']['colspan'] += $colspan;
-                                break;
-                            }
-                            $prev--;
-                        }
-                    }
-                    continue;
-                }
-                $cell = trim($cell);
-
-                $Element = array(
-                    'name' => 'td',
-                    'handler' => 'line',
-                    'text' => trim($cell),
-                );
-
-                if (isset($Block['alignments'][$index]))
-                {
-                    $Element['attributes'] = array(
-                        'style' => 'text-align: '.$Block['alignments'][$index].';',
-                    );
-                }
-                if($colspan > 1) {
-                    $Element['attributes']['colspan'] = $colspan;
-                    $colspan = 1;
-                }
-
-                $Elements [$index]= $Element;
-            }
-
-            $Element = array(
-                'name' => 'tr',
-                'handler' => 'elements',
-                'text' => $Elements,
-            );
-
-            $Block['element']['text'][2]['text'] []= $Element;
-
-            return $Block;
-        } elseif (preg_match('/^\[(.*.)\]$/', $Line['text'],$parts)) { //Get Table Caption          
-            $Block['element']['text'][0]['text'] []= array(
-                'name' => 'caption',
-                'handler' => 'line',
-                'text' => $parts[1],
-            );
-    
-          return $Block;
-        }
-    }
-
     protected $variables=array();
     protected function inlineGetVariable($Excerpt)
     {
@@ -845,7 +629,6 @@ class ParsedownExtra extends Parsedown
             return $Block;
         }
     }
-
 
     protected function blockVariableContinue($Line, $Block)
     {
